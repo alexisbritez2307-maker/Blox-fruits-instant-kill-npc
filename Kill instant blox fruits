@@ -1,0 +1,202 @@
+-- NPC SCRIPT HUB | FREEZE REAL + LONG RANGE
+if not game:IsLoaded() then game.Loaded:Wait() end
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local player = Players.LocalPlayer
+local mouse = player:GetMouse()
+
+-- ===== NETWORK =====
+pcall(function()
+settings().Physics.AllowSleep = false
+sethiddenproperty(player,"SimulationRadius",math.huge)
+sethiddenproperty(player,"MaxSimulationRadius",math.huge)
+end)
+
+-- ===== GUI =====
+local gui = Instance.new("ScreenGui", game.CoreGui)
+gui.ResetOnSpawn = false
+
+local main = Instance.new("Frame", gui)
+main.Size = UDim2.new(0,360,0,360)
+main.Position = UDim2.new(0.3,0,0.3,0)
+main.BackgroundColor3 = Color3.fromRGB(45,45,45)
+main.Active = true
+main.Draggable = true
+Instance.new("UICorner", main)
+
+local title = Instance.new("TextLabel", main)
+title.Size = UDim2.new(1,0,0,34)
+title.Text = "NPC SCRIPT HUB"
+title.TextScaled = true
+title.TextColor3 = Color3.new(1,1,1)
+title.BackgroundColor3 = Color3.fromRGB(55,55,55)
+Instance.new("UICorner", title)
+
+-- ☃️ TOGGLE
+local toggle = Instance.new("TextButton", gui)
+toggle.Text = "☃️"
+toggle.Size = UDim2.new(0,50,0,50)
+toggle.Position = UDim2.new(0.05,0,0.35,0)
+toggle.TextScaled = true
+toggle.BackgroundColor3 = Color3.fromRGB(60,60,60)
+Instance.new("UICorner", toggle)
+
+local opened = true
+toggle.MouseButton1Click:Connect(function()
+opened = not opened
+main.Visible = opened
+end)
+
+-- TARGET
+local targetNPC
+local targetLabel = Instance.new("TextLabel", main)
+targetLabel.Position = UDim2.new(0,10,0,44)
+targetLabel.Size = UDim2.new(1,-20,0,30)
+targetLabel.Text = "TARGET: none"
+targetLabel.TextScaled = true
+targetLabel.TextColor3 = Color3.new(1,1,1)
+targetLabel.BackgroundColor3 = Color3.fromRGB(70,70,70)
+Instance.new("UICorner", targetLabel)
+
+local function isNPC(m)
+return m:IsA("Model")
+and m:FindFirstChildOfClass("Humanoid")
+and m ~= player.Character
+end
+
+mouse.Button1Down:Connect(function()
+if mouse.Target then
+local m = mouse.Target:FindFirstAncestorOfClass("Model")
+if m and isNPC(m) then
+targetNPC = m
+targetLabel.Text = "TARGET: "..m.Name
+end
+end
+end)
+
+-- ===== BUTTON MAKER =====
+local function btn(text,y)
+local b = Instance.new("TextButton", main)
+b.Size = UDim2.new(1,-20,0,36)
+b.Position = UDim2.new(0,10,0,y)
+b.Text = text
+b.TextScaled = true
+b.BackgroundColor3 = Color3.fromRGB(75,75,75)
+b.TextColor3 = Color3.new(1,1,1)
+Instance.new("UICorner", b)
+return b
+end
+
+-- ===== LONG RANGE KILL =====
+local function remoteKill(npc)
+if not npc then return end
+local hum = npc:FindFirstChildOfClass("Humanoid")
+local hrp = npc:FindFirstChild("HumanoidRootPart")
+local char = player.Character
+if not hum or not hrp or not char then return end
+
+local myHRP = char:FindFirstChild("HumanoidRootPart")  
+if not myHRP then return end  
+
+local oldCF = hrp.CFrame  
+hrp.CFrame = myHRP.CFrame * CFrame.new(0,0,-3)  
+RunService.Heartbeat:Wait()  
+hum.Health = 0  
+hum:TakeDamage(9e9)  
+task.delay(0.05,function()  
+	if hrp then hrp.CFrame = oldCF end  
+end)
+
+end
+
+-- ===== BRING LONG RANGE =====
+local bringOn = false
+RunService.Heartbeat:Connect(function()
+if bringOn and targetNPC
+and targetNPC:FindFirstChild("HumanoidRootPart")
+and player.Character
+and player.Character:FindFirstChild("HumanoidRootPart") then
+
+targetNPC.HumanoidRootPart.CFrame =  
+		player.Character.HumanoidRootPart.CFrame * CFrame.new(0,0,-4)  
+
+	targetNPC.HumanoidRootPart.AssemblyLinearVelocity = Vector3.zero  
+end
+
+end)
+
+-- ===== FREEZE REAL (ANTI IA) =====
+local frozen = {}
+
+local function hardFreeze(npc, state)
+if not npc then return end
+local hum = npc:FindFirstChildOfClass("Humanoid")
+local hrp = npc:FindFirstChild("HumanoidRootPart")
+if not hum or not hrp then return end
+
+if state then  
+	frozen[npc] = {  
+		Anchored = hrp.Anchored,  
+		AutoRotate = hum.AutoRotate  
+	}  
+
+	hrp.Anchored = true  
+	hum.AutoRotate = false  
+
+	for _,s in ipairs(Enum.HumanoidStateType:GetEnumItems()) do  
+		hum:SetStateEnabled(s,false)  
+	end  
+
+	hum:ChangeState(Enum.HumanoidStateType.Physics)  
+else  
+	local data = frozen[npc]  
+	if data then  
+		hrp.Anchored = data.Anchored  
+		hum.AutoRotate = data.AutoRotate  
+
+		for _,s in ipairs(Enum.HumanoidStateType:GetEnumItems()) do  
+			hum:SetStateEnabled(s,true)  
+		end  
+	end  
+	frozen[npc] = nil  
+end
+
+end
+
+-- ===== BUTTONS =====
+btn("💀 KILL NPC (LONG RANGE)", 90).MouseButton1Click:Connect(function()
+if targetNPC then remoteKill(targetNPC) end
+end)
+
+btn("💀💀 KILL ALL (LONG RANGE)", 130).MouseButton1Click:Connect(function()
+if not targetNPC then return end
+for _,m in ipairs(workspace:GetDescendants()) do
+if isNPC(m) and m.Name == targetNPC.Name then
+remoteKill(m)
+end
+end
+end)
+
+btn("🧲 BRING NPC ON / OFF", 170).MouseButton1Click:Connect(function()
+bringOn = not bringOn
+end)
+
+local freezeOn = false
+btn("❄️ FREEZE NPC ON / OFF", 210).MouseButton1Click:Connect(function()
+if not targetNPC then return end
+freezeOn = not freezeOn
+hardFreeze(targetNPC, freezeOn)
+end)
+
+local freezeAllOn = false
+btn("❄️ FREEZE ALL NPC ON / OFF", 250).MouseButton1Click:Connect(function()
+freezeAllOn = not freezeAllOn
+for _,m in ipairs(workspace:GetDescendants()) do
+if isNPC(m) then
+hardFreeze(m, freezeAllOn)
+end
+end
+end)
+
+print("✅ NPC SCRIPT HUB CARGADO | FREEZE REAL + LONG RANGE")
